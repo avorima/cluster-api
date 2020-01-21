@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/cluster-api/controllers/mdutil"
 )
 
 func TestConvertCluster(t *testing.T) {
@@ -207,6 +208,24 @@ func TestConvertMachineDeployment(t *testing.T) {
 
 			g.Expect(src.ConvertTo(dst)).To(Succeed())
 			g.Expect(dst.Spec.ClusterName).To(Equal("test-cluster"))
+		})
+
+		t.Run("should convert annotations", func(t *testing.T) {
+			src := &MachineDeployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						mdutil.DesiredReplicasAnnotation: "3",
+						mdutil.MaxReplicasAnnotation:     "5",
+					},
+				},
+			}
+			dst := &v1alpha3.MachineDeployment{}
+
+			g.Expect(src.ConvertTo(dst)).To(Succeed())
+			g.Expect(dst.Annotations).NotTo(HaveKey(mdutil.DesiredReplicasAnnotation))
+			g.Expect(dst.Annotations).NotTo(HaveKey(mdutil.MaxReplicasAnnotation))
+			g.Expect(dst.Annotations).To(HaveKeyWithValue(v1alpha3.DesiredReplicasAnnotation, "3"))
+			g.Expect(dst.Annotations).To(HaveKeyWithValue(v1alpha3.MaxReplicasAnnotation, "5"))
 		})
 	})
 

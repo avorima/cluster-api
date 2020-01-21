@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/cluster-api/controllers/mdutil"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -206,16 +207,36 @@ func (src *MachineDeployment) ConvertTo(dstRaw conversion.Hub) error {
 
 	// Manually restore data.
 	restored := &v1alpha3.MachineDeployment{}
-	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
+	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil {
 		return err
+	} else if ok {
+		if restored.Spec.ClusterName != "" {
+			dst.Spec.ClusterName = restored.Spec.ClusterName
+		}
+		dst.Spec.Paused = restored.Spec.Paused
+		dst.Status.Phase = restored.Status.Phase
+		restoreMachineSpec(&restored.Spec.Template.Spec, &dst.Spec.Template.Spec)
 	}
 
-	if restored.Spec.ClusterName != "" {
-		dst.Spec.ClusterName = restored.Spec.ClusterName
+	// Manually convert annotations
+	if dst.Annotations != nil {
+		for k, v := range dst.Annotations {
+			switch k {
+			case mdutil.RevisionAnnotation:
+				dst.Annotations[v1alpha3.RevisionAnnotation] = v
+				delete(dst.Annotations, mdutil.RevisionAnnotation)
+			case mdutil.RevisionHistoryAnnotation:
+				dst.Annotations[v1alpha3.RevisionHistoryAnnotation] = v
+				delete(dst.Annotations, mdutil.RevisionHistoryAnnotation)
+			case mdutil.DesiredReplicasAnnotation:
+				dst.Annotations[v1alpha3.DesiredReplicasAnnotation] = v
+				delete(dst.Annotations, mdutil.DesiredReplicasAnnotation)
+			case mdutil.MaxReplicasAnnotation:
+				dst.Annotations[v1alpha3.MaxReplicasAnnotation] = v
+				delete(dst.Annotations, mdutil.MaxReplicasAnnotation)
+			}
+		}
 	}
-	dst.Spec.Paused = restored.Spec.Paused
-	dst.Status.Phase = restored.Status.Phase
-	restoreMachineSpec(&restored.Spec.Template.Spec, &dst.Spec.Template.Spec)
 
 	return nil
 }

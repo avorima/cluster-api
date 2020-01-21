@@ -1,4 +1,5 @@
 # -*- mode: Python -*-
+# vim: set ft=python:
 
 # set defaults
 
